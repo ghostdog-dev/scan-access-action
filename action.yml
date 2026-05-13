@@ -1,5 +1,5 @@
-name: scan-access
-description: WCAG accessibility audit powered by scan-access.com (axe-core + AI fixes)
+name: Scan Access WCAG Audit
+description: WCAG 2.2 AA accessibility audit powered by scan-access.com (axe-core + AI fix instructions + lawsuit risk score)
 author: scan-access.com
 
 branding:
