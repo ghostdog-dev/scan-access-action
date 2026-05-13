@@ -1,0 +1,68 @@
+name: scan-access
+description: WCAG accessibility audit powered by scan-access.com (axe-core + AI fixes)
+author: scan-access.com
+
+branding:
+  icon: check-circle
+  color: green
+
+inputs:
+  api-key:
+    description: scan-access API key (sa_live_... or sa_test_...). Store as a secret.
+    required: true
+  target-url:
+    description: Public HTTPS URL to audit. Informational for M6-F (the store determines the URL scanned).
+    required: true
+  store-id:
+    description: UUID of the scan-access store to scan (found in dashboard URL).
+    required: true
+  max-pages:
+    description: Maximum number of pages to crawl (capped by your plan tier).
+    required: false
+    default: "25"
+  max-depth:
+    description: Maximum crawl depth from the entry URL.
+    required: false
+    default: "3"
+  region:
+    description: Compliance region. Either us_ada or eu_eaa.
+    required: false
+    default: us_ada
+  fail-on:
+    description: Severity threshold to fail the job. never, minor, moderate, serious, critical, any.
+    required: false
+    default: critical
+  output-sarif:
+    description: Local path where the SARIF document is written.
+    required: false
+    default: scan-access.sarif
+  api-base-url:
+    description: Override base URL for the scan-access API (used for self-hosted or testing).
+    required: false
+    default: https://api.scan-access.com
+
+outputs:
+  scan-id:
+    description: UUID of the scan that was created.
+  score:
+    description: Overall accessibility score (0-100).
+  total-violations:
+    description: Total number of issues across all severities.
+  critical-count:
+    description: Number of critical issues.
+  serious-count:
+    description: Number of serious issues.
+  moderate-count:
+    description: Number of moderate issues.
+  minor-count:
+    description: Number of minor issues.
+  pdf-url:
+    description: Signed URL to download the compliance PDF (null if PDF was not generated).
+  scan-url:
+    description: Public dashboard URL of the scan result.
+  sarif-file:
+    description: Path to the local SARIF file written by this action.
+
+runs:
+  using: node24
+  main: dist/index.js
