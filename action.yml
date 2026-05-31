@@ -1,5 +1,5 @@
 name: Scan Access WCAG Audit
-description: WCAG 2.2 AA accessibility audit powered by scan-access.com (axe-core + AI fix instructions + lawsuit risk score)
+description: WCAG 2.2 AA accessibility audit powered by scan-access.com (render-in-CI via Playwright + axe-core + AI fix instructions + lawsuit risk score)
 author: scan-access.com
 
 branding:
@@ -10,24 +10,26 @@ inputs:
   api-key:
     description: scan-access API key (sa_live_... or sa_test_...). Store as a secret.
     required: true
-  target-url:
-    description: Public HTTPS URL to audit. Informational for M6-F (the store determines the URL scanned).
+  app-url:
+    description: Base URL of the app served in the runner (e.g. http://localhost:4173). Must be http or https.
     required: true
-  store-id:
-    description: UUID of the scan-access store to scan (found in dashboard URL).
+  routes:
+    description: |
+      Newline-separated list of routes to render (relative to app-url, e.g. "/" or "/pricing").
+      Each route is resolved via new URL(route, app-url). Duplicates are ignored.
     required: true
-  max-pages:
-    description: Maximum number of pages to crawl (capped by your plan tier).
-    required: false
-    default: "25"
-  max-depth:
-    description: Maximum crawl depth from the entry URL.
-    required: false
-    default: "3"
   region:
     description: Compliance region. Either us_ada or eu_eaa.
     required: false
     default: us_ada
+  legislations:
+    description: Comma-separated legal references to include (e.g. "wcag22aa,ada,eaa") or "all".
+    required: false
+    default: wcag22aa
+  ai-fix:
+    description: Generate AI fix instructions for findings (Y/N or true/false).
+    required: false
+    default: "N"
   fail-on:
     description: Severity threshold to fail the job. never, minor, moderate, serious, critical, any.
     required: false

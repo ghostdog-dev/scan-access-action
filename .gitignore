@@ -1,5 +1,10 @@
-node_modules/
+# OS / editor junk
+.DS_Store
 *.log
-.env
-.secrets
-lib/
+
+# This repo is a distribution mirror: the built action (dist/) and its single
+# runtime dependency (node_modules/playwright-core) are intentionally committed.
+# Source lives in the private scan-access monorepo (github-action/). Do not add
+# other node_modules here.
+node_modules/*
+!node_modules/playwright-core
