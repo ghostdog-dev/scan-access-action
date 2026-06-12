@@ -83,9 +83,10 @@ jobs:
 
 | Name | Required | Default | Description |
 | --- | --- | --- | --- |
-| `api-key` | yes | — | scan-access API key (`sa_live_...` / `sa_test_...`). Store as a secret. |
-| `app-url` | yes | — | Base URL of the app served in the runner (e.g. `http://localhost:4173`). Must be `http` or `https`. |
-| `routes` | yes | — | Newline-separated list of routes to render, relative to `app-url` (e.g. `/`, `/pricing`). Duplicates are ignored. |
+| `mode` | no | `render` | `render` (full audit via the scan-access API) or `static` (local lint of changed files — see [Static mode](#static-mode-pr-incremental)). |
+| `api-key` | render only | — | scan-access API key (`sa_live_...` / `sa_test_...`). Store as a secret. Ignored in static mode. |
+| `app-url` | render only | — | Base URL of the app served in the runner (e.g. `http://localhost:4173`). Must be `http` or `https`. Ignored in static mode. |
+| `routes` | render only | — | Newline-separated list of routes to render, relative to `app-url` (e.g. `/`, `/pricing`). Duplicates are ignored. Ignored in static mode. |
 | `region` | no | `us_ada` | Compliance region: `us_ada` (ADA / Section 508) or `eu_eaa` (European Accessibility Act). |
 | `legislations` | no | `wcag22aa` | Comma-separated legal references or `all`. Codes: `wcag22aa`, `rgaa412`, `en301549`, `section508`, `eaa`, `ada`, `en301549_v411`, `rgaa5_preview`, `bitv2`, `stanca`, `wcag3_draft`. |
 | `ai-fix` | no | `N` | Generate AI fix instructions for findings (`Y`/`N`/`true`/`false`). |
@@ -214,6 +215,64 @@ Omit the `upload-sarif` step. The action still writes the SARIF file locally —
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 # No upload-sarif step — attach the file as an artifact if needed.
 ```
+
+## Static mode (PR incremental)
+
+`mode: static` runs **shift-left linting on the changed files** of a pull request (or push) — no app build, no Playwright, no API call. It lists the changed files via native `git diff`, routes them to static analyzers by extension, then emits inline PR annotations, a step summary, an upserted PR comment, and a local SARIF file.
+
+| Extensions | Analyzer | Rules |
+|---|---|---|
+| `.html`, `.htm` | [`html-validate`](https://html-validate.org) | `recommended` + `a11y` presets |
+| `.jsx`, `.tsx` | ESLint + [`eslint-plugin-jsx-a11y`](https://github.com/jsx-eslint/eslint-plugin-jsx-a11y) | `recommended` preset. Parsed with espree (no TypeScript parser): a `.tsx` file using TS-only syntax is skipped with a warning. |
+| `.vue` | ESLint + [`eslint-plugin-vuejs-accessibility`](https://vue-a11y.github.io/eslint-plugin-vuejs-accessibility/) | `flat/recommended` preset |
+| `.svelte` | [Svelte compiler](https://svelte.dev/docs/svelte/compiler-warnings) | built-in `a11y_*` compiler warnings |
+| `.liquid`, `.jinja`, `.jinja2`, `.j2`, `.njk` | [djLint](https://djlint.com) (`--lint`, `jinja` profile) | accessibility/structure rules only (`H005` lang, `H006` img dimensions, `H013` img alt, `H016` title, `H019` `javascript:` links, `H025` orphan tags) — pure formatting rules are ignored |
+
+**Positioning, honestly:** static linting catches a fraction of accessibility issues (missing `alt`, missing `lang`, empty buttons…). It cannot evaluate rendered color contrast, computed ARIA states, or JS-driven DOM. **The full render scan remains the compliance reference** — use static mode as a fast, free first gate on every PR, and the render mode for the audit.
+
+```yaml
+name: Accessibility lint (changed files)
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write   # required to upsert the PR comment
+  security-events: write # required only if you upload SARIF to Code Scanning
+
+jobs:
+  a11y-static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # required: static mode diffs base...head
+
+      - uses: ghostdog-dev/scan-access-action@v2
+        id: a11y-static
+        with:
+          mode: static
+          fail-on: serious
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Optional — forward SARIF to GitHub Code Scanning
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: ${{ steps.a11y-static.outputs.sarif-file }}
+```
+
+Notes:
+
+- `fetch-depth: 0` on `actions/checkout` is required so the base...head diff is computable. On a shallow clone the action attempts a targeted `git fetch` of the base, and fails with an actionable message otherwise.
+- No third-party action is used to compute changed files — only native `git diff --name-only --diff-filter=ACMR`.
+- At most **200 changed files** are analyzed per run (explicit warning when truncated).
+- Analyzers run via `npx` with exact pinned versions; if an analyzer cannot run (offline registry, crash), it is skipped with a warning — the job never fails because of analyzer availability.
+- The PR comment is optional: without `GITHUB_TOKEN` it is skipped with a warning, and a failed post never fails the job. It uses its own hidden marker, so it coexists with the render-mode comment when both jobs run on the same PR.
+- djLint is a Python package, run via `pipx run djlint==<pin>`. `pipx` is preinstalled on `ubuntu-latest`; on a self-hosted runner without `pipx` (or `python3 -m pipx`), template files are skipped with a warning — the job stays green.
+- Changed files with no matching analyzer are ignored (counted in the step summary). A PR with no eligible files succeeds immediately with a notice.
+- `fail-on` and `output-sarif` work exactly as in render mode. `api-key`, `app-url` and `routes` are ignored (with a warning if provided).
 
 ## Privacy
 

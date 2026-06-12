@@ -7,17 +7,25 @@ branding:
   color: green
 
 inputs:
+  mode:
+    description: |
+      Operating mode. "render" (default) renders routes via Playwright and audits them
+      through the scan-access API. "static" lints the changed files of the PR/push locally
+      (no API call) and reports annotations + SARIF.
+    required: false
+    default: render
   api-key:
-    description: scan-access API key (sa_live_... or sa_test_...). Store as a secret.
-    required: true
+    description: scan-access API key (sa_live_... or sa_test_...). Store as a secret. Required in render mode (the default); ignored in static mode.
+    required: false
   app-url:
-    description: Base URL of the app served in the runner (e.g. http://localhost:4173). Must be http or https.
-    required: true
+    description: Base URL of the app served in the runner (e.g. http://localhost:4173). Must be http or https. Required in render mode; ignored in static mode.
+    required: false
   routes:
     description: |
       Newline-separated list of routes to render (relative to app-url, e.g. "/" or "/pricing").
       Each route is resolved via new URL(route, app-url). Duplicates are ignored.
-    required: true
+      Required in render mode; ignored in static mode.
+    required: false
   region:
     description: Compliance region. Either us_ada or eu_eaa.
     required: false
